@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"image"
 	"image/color"
 	"math/rand"
 	"time"
@@ -20,10 +19,14 @@ var colorBG color.Color = color.RGBA{
 var colorAlive color.Color = color.Black
 var colorDead color.Color = color.White
 
-var borderSize = 2
+var borderSize = 5
 
 var updateInterval = 250 * time.Millisecond
 var sinceUpdate = 2
+
+var deadPixelImg *ebiten.Image
+var alivePixelImg *ebiten.Image
+var tileImageSize int = 100
 
 func NewGameOfLife(width int, height int) *GameOfLife {
 	gol := &GameOfLife{
@@ -37,6 +40,24 @@ func NewGameOfLife(width int, height int) *GameOfLife {
 			gol.cells[i][j] = rand.Intn(3) == 1
 		}
 	}
+  
+  deadPixelImg = ebiten.NewImage(tileImageSize,tileImageSize)
+  deadPixelImg.Fill(colorDead)
+  alivePixelImg = ebiten.NewImage(tileImageSize,tileImageSize)
+  alivePixelImg.Fill(colorAlive)
+  for i := 0; i < tileImageSize; i++ {
+    for j := 0; j < borderSize; j++ {
+      deadPixelImg.Set(i, j, colorBG)
+      deadPixelImg.Set(i, tileImageSize - j, colorBG)
+      deadPixelImg.Set(j, i, colorBG)
+      deadPixelImg.Set(tileImageSize - j, i, colorBG)
+      alivePixelImg.Set(i, j, colorBG)
+      alivePixelImg.Set(i, tileImageSize - j, colorBG)
+      alivePixelImg.Set(j, i, colorBG)
+      alivePixelImg.Set(tileImageSize - j, i, colorBG)
+    }
+  }
+
 	return gol
 }
 
@@ -72,11 +93,10 @@ type GameOfLife struct {
 // If the error returned is Termination, game execution halts, but does not return an error from RunGame.
 // If the error returned is any other non-nil value, game execution halts and the error is returned from RunGame.
 func (ga *GameOfLife) Update() error {
-  if ga.sinceUpdate < sinceUpdate {
-    ga.sinceUpdate++
+  if time.Since(ga.lastUpdate) < updateInterval {
     return nil
   }
-  sinceUpdate = 0
+
 	ga.lastUpdate = time.Now()
 	cellsCopy := make([][]bool, len(ga.cells))
   fmt.Printf("Update called, %f\n", ebiten.ActualTPS())
@@ -140,36 +160,19 @@ func (ga *GameOfLife) Draw(screen *ebiten.Image) {
 	screen.Fill(colorBG)
 	for x := range ga.cells {
 		for y := range ga.cells[x] {
-			si := screen.SubImage(image.Rectangle{
-				Min: image.Point{
-					X: x * pixPerCell,
-					Y: y * pixPerCell,
-				},
-				Max: image.Point{
-					X: ((x + 1) * pixPerCell),
-					Y: ((y + 1) * pixPerCell),
-				},
-			}).(*ebiten.Image)
-			drawCell(ga.cells[x][y], si)
+      dio := ebiten.DrawImageOptions{}
+      scaleFactor := float64(pixPerCell)/float64(tileImageSize)
+      dio.GeoM.Scale(scaleFactor, scaleFactor)
+      dio.GeoM.Translate(float64(x * pixPerCell), float64(y * pixPerCell))
+      if ga.cells[x][y] {
+        screen.DrawImage(alivePixelImg, &dio)
+      } else {
+        screen.DrawImage(deadPixelImg, &dio)
+      }
 		}
 	}
 }
 
-func drawCell(alive bool, im *ebiten.Image) {
-	drawColor := colorBG
-	for x := im.Bounds().Min.X; x <= im.Bounds().Max.X; x++ {
-		for y := im.Bounds().Min.Y; y < im.Bounds().Max.Y; y++ {
-			if x <= borderSize+im.Bounds().Min.X || y <= borderSize+im.Bounds().Min.Y || im.Bounds().Max.X-x <= borderSize || im.Bounds().Max.Y-y <= borderSize {
-				drawColor = colorBG
-			} else if alive {
-				drawColor = colorAlive
-			} else {
-				drawColor = colorDead
-			}
-			im.Set(x, y, drawColor)
-		}
-	}
-}
 
 // Layout accepts a native outside size in device-independent pixels and returns the game's logical screen
 // size.

@@ -6,8 +6,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-var width int = 30
-var height int = 20
+var width int = 88
+var height int = 66
 
 func main() {
   gol := NewGameOfLife(width, height)
@@ -15,7 +15,7 @@ func main() {
   ebiten.SetWindowSize(640*2, 480*2)
   ebiten.SetWindowTitle("Game of Life")
   ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-  ebiten.SetFullscreen(true)
+  ebiten.SetFullscreen(false)
   err := ebiten.RunGame(gol)
   if err != nil {
     log.Panic(err)
